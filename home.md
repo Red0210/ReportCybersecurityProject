@@ -34,7 +34,8 @@ In the command there is specified the format "john", in fact once the TGT is obt
 As wordlist, `rockyou.txt` is used and the cracking is performed on the TGT in the textual file previously created.
 As a result the password of `srv_audit` is obtained and the AS-REP roasting has been succesful.
 
-![AS-REP execution](images/cyberdemo1.png)
+![1](images/cyberdemo1.png)
+*Imagine 1 — AS-REP roasting execution*
 
 ### Domain discovery
 The next step is to have more informations about the domain, using the credentials obtained with the previous step 2 actions were performed:
@@ -48,7 +49,8 @@ In the demo are present only 3 services: Active Directory Domain Services (AD DS
 It has been done using the command: `ldapsearch -x -H 'ldap://192.168.56.10' -D 'srv_audit@vuln.local' -w 'Password123!' -b 'DC=vuln,DC=local' '(servicePrincipalName=*)'`.
 As a result it is possible to see that `sql_svc` is in the `Helpdesk` group, indicating a misconfiguration.
 
-![AS-REP execution](images/cyberdemo1.png)
+![2](images/cyberdemo2.png)
+*Imagine 2 — Detail of the information about `sql_svc`*
 
 #### Gathering informations about the `Domain Admins` group
 To obtain information about the `Domain Admins` group, the utility `dacledit.py` has been used. This tool is specifically designed to query and modify Access Control Lists (ACLs) within Active Directory, and in this case, the action performed is to read the permissions of the target group.
@@ -57,12 +59,19 @@ The command is:
 
 By reading the information, specifically at ACE[7] (Access Control Entry), which is the individual rule within the ACL that defines the permissions granted to a specific trustee, it can be seen that the group Helpdesk is present. This configuration grants the Helpdesk group full Write permissions over the Domain Admins group, exposing a critical security misconfiguration.
 
-![AS-REP execution](images/cyberdemo1.png)
+![3](images/cyberdemo3.png)
+*Imagine 2 — Detail of the ACE[7]*
 
 #### Discovery results
-By exposing these two misconfigurations, it becomes clear that `sql_svc` is crucial for the continuation of the attack
+By exposing these two misconfigurations, it becomes clear that `sql_svc` is crucial for the continuation of the attack.
 
+### Kerberoasting
+For performing Kerberoasting, the GetUserSPNs.py utility is used, it does a initial scan to see which accounts have an SPN and then, using the -request parameter in the command, it requests the Kerberos TGS for the services it found; to find them he script searches in the Active Directory via LDAP to locate accounts linked to a SPN.
+As for AS-REP roasting: the resulting TGS hashes are saved in a textual file which will be created at the moment, the john format is specified.
+After the TGS is obtained, john is used again to perform password cracking.
 
+![4](images/cyberdemo1.png)
+*Imagine 4 — Kerberoasting execution*
 
 
 
