@@ -1,5 +1,5 @@
 # Active Directory Domain Compromise via AS-REP roasting and Kerberoasting
-
+Federico Castelli, IN2300056
 ## Introduction to the Attack
 The idea of this demo was to create and attack a small organization that uses Windows Active Directory which has several misconfigurations.
 
