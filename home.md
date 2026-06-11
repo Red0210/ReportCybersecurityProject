@@ -149,6 +149,8 @@ Once the desired configuration is created, is fundamental to take a snapshot of 
 
 By doing this the configuration desired is preserved and the machine can be restored to the saved state. It's important to easily perform multiple tries of the wanted attack.
 
+As a good practice, before starting an attempted attack, always restore the machine to said state.
+
 ## Introduction to the Attack
 The idea of this demo was to create and attack a small organization that uses Windows Active Directory which has several misconfigurations.
 
