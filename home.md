@@ -1,5 +1,154 @@
 # Active Directory Domain Compromise via AS-REP roasting and Kerberoasting
 Federico Castelli, IN2300056
+
+## Setting up the DC
+### Installing the Windows Server
+1) To prepare an enviroment , on the page https://www.microsoft.com/it-it/evalcenter/download-windows-server-2022 choose Download ISO to obtain the file: `SERVER_EVAL_x64FRE_en-us` (it was chosen the english version).
+After that: open VirtualBox, add a new VM; configure the first screen as follows:
++ Name: Choose a clear name, for example `Windows_Server_2022_Target`.
++ Machine Folder: Leave the default location.
++ ISO Image: Click the drop-down menu, select Other..., and browse to the `SERVER_EVALx64FRE_en-us` file located in your Downloads folder.
++ Type: Windows.
++ Version: Windows 2022 (64-bit).
++ Check the `Skip Unattended Installation` box. This is important to perform the standard manual installation to avoid potential errors.
++ Click Next.
+
+2) On the next screen, dedicated to hardware:
++ Base Memory (RAM): Allocate at least 4096 MB (4 GB).
++ Processors (CPU): Allocate at least 2 CPUs.
++ Click `Next`.
+
+
+3) Select Create a virtual hard disk now:
++ Disk Size: Set it to at least 50 GB or 60 GB. With less than 40 GB, you risk running into issues due to a full disk.
++ Click `Next`, and then click `Finish`.
+
+4)  Start the Windows Installation, you will now see your new virtual machine in the list on the left side of VirtualBox:
++ Select it and click the `Start` button (the green arrow at the top).
++ IMPORTANT possibility: As soon as the VM’s black screen appears, you will see a white message saying "Press any key to boot from CD or DVD...". Immediately press the Spacebar on your keyboard. If you do not press a key within 2–3 seconds, the machine will fail to boot correctly (you may see a yellow screen or the UEFI Shell instead). If you miss the timing, click Machine → Reset in the top menu and try again; BUT if it appears for  a brief short of time and then porceeds normally, there are no problems.
++ The purple Windows Server Setup screen will appear. Click `Next`, then click `Install Now`.
++ After a few seconds, Windows will ask which version you want to install. You will be presented with four options: you must select a version that includes "(Desktop Experience)", preferably Standard (Desktop Experience); if you select the regular version without "(Desktop Experience)", Windows will be installed without a graphical user interface (GUI).
+
+
+When you are given the choice between:
++ Upgrade: install Microsoft Server Operating System and keep files, settings, and applications
++ Custom: Install Microsoft Server Operating System only (advanced)
+
+Select the second option: Custom: Install Microsoft Server Operating System only (advanced)
+Since we are installing the virtual machine from scratch on an empty disk, there is no existing operating system to upgrade.
+Immediately after clicking Custom, you will see a screen listing the available disks. You should see a single entry called:
+"Drive 0 Unallocated Space" (this should correspond to the 50–60 GB you allocated in VirtualBox).
+Select that entry by clicking on it.
+Then click `Next`.
+At this point, Windows will automatically create the necessary partitions and begin the actual installation process.
+
+Then, let Windows complete the installation, and when it prompts you to set a password for the local `Administrator` account (when the desktop first starts), choose a simple, familiar password that you can remember easily (the choice of the name for the account should be locked for `Administrator`).
+
+
+Before proceeding, it's important to have the two VMs being able to connect to each other:
+1) Set up the network in VirtualBox without shutting down the machine, look at the top menu of the Windows VM in VirtualBox and click on `Devices -> Network -> Network Settings...`; in the `Attached to:` dropdown menu, select Host-only Adapter (`VirtualBox Host-Only Ethernet Adapter`). Below, check that the adapter name is the same one you use for Kali. Click `OK` (Do exactly the same in your Kali network settings if it is not already set to Host-Only in the same slot).
+
+2) Configure the static IP on Windows ServerActive Directory strictly requires a fixed IP and the server to point to itself as DNS, to configure it graphically: inside Windows Server, press `Windows + R` on your keyboard to open the “Run” window. Type `ncpa.cpl` and press `Enter`. The Network Connections window will open. Right-click the `active network adapter` (e.g. Ethernet0) and select `Properties` . Double-click `Internet Protocol Version 4 (TCP/IPv4)`. Select `Use the following IP address` and enter the following details:
++ IP address: 192.168.56.10
++ Subnet mask: 255.255.255.0 (it will auto-fill as soon as you click it)
++ Default gateway: Leave it blank or set 192.168.56.10
+
+In the DNS section below, select `Use the following DNS server addresses`:
++ Preferred DNS server: 192.168.56.10
+Click `OK` and then `OK` again to save.
+
+4) On the Powershell of the Windows Server: `Set-NetFirewallProfile -Profile Domain,Public,Private -Enabled False` to disable firewalls and allow Windows Server and Kali to communicate. This has to be done once you are entered in the desktop (you can do it in every moment before having to exchange communication with the Kali machine).
+
+Once you click Finish, Windows will show the initial lock screen with the classic message “Press Ctrl+Alt+Delete to unlock”.
+
+### Promote the Windows Server
+To send this command inside the VirtualBox VM, go to the top menu of the VirtualBox window and click:
+`Input → Keyboard → Insert Ctrl+Alt+Del`.
+
+Once the desktop loads, choose `allow` when asked if you want that "Your PC to be discoverable by other PCs and devices on this network" and also a large window called Server Manager will open automatically.
+
++ In the top-right corner, click `Manage and select Add Roles and Features`.
++ In the wizard that opens, click `Next` through the first screens, leaving everything as default (Role-based, Select a server from the pool), until you reach the Server Roles screen.
++ In the list of roles, check `Active Directory Domain Services`. A pop-up will appear, click `Add Features` to confirm, then click `Next`.
++ Continue clicking `Next` through the following screens without changing anything, and finally click `Install`.
++ Wait about a minute for the progress bar to complete. Do not close the window.
++ Once installation is finished, you will see a blue link that says `Promote this server to a domain controller`.
++ Click it to open the final configuration wizard:
+  + In the first screen `Deployment Configuration`, select the third option: `Add a new forest`.
+  + In the Root domain name field, type the domain name that will use, for example `vuln.local`, then click `Next`.
+  + On the next screen, you will be asked for a Directory Services Restore Mode (DSRM) password. Enter the same password you always use for the lab (e.g. Password123!) in both fields and click `Next`.
+  + In the following screens `DNS Options, Additional Options, Paths`, do not change anything, just click `Next` at each step (you will see that `VULN` will automatically appear in the NetBIOS field).
+
+At the end, Windows will run a requirements check. You may see yellow warning triangles (this is normal in lab environments), but a green checkmark will indicate that all checks have passed. Click `Install`.
+
+The system will then configure Active Directory for a couple of minutes and restart automatically.
+
+After the reboot, you will no longer log in as a local user, but as the domain administrator (you will see `VULN\Administrator`).
+Now that the machine has restarted, it has officially become the Domain Controller for the `vuln.local` domain.
+
+### Populate the DC, create misconfigurations
+Since the DC is empty, to perform anything useful Accounts have to be added.
+Here are presented PowerShell commands to do so:
++ Create a new account:
+  + `New-ADUser -Name "Mario Rossi" -SamAccountName "mrossi" -AccountPassword (ConvertTo-SecureString "Password_of_mrossi" -AsPlainText -Force) -Enabled $true`
+
++ Create a new service (with a SPN):
+  + `New-ADUser -Name "sql_svc" -SamAccountName "sql_svc" -AccountPassword (ConvertTo-SecureString "SQLServerPass123!" -AsPlainText -Force) -Enabled $true`
+  + `setspn -A MSSQLSvc/sql01.vuln.local:1433 sql_svc`
+
+Note: this represent an instance to a real service.
+
++ Create a group:
+  + `New-ADGroup -Name "IT_Support" -GroupScope Global`
+
++ Add accounts to a group:
+  + `Add-ADGroupMember -Identity "IT_Support" -Members lserra,sferrari,mrossi`
+
+Now here the instructions to create the misconfigurations:
+
++ Assign to an account the "Do not require Kerberos preauthentication" attribute:
+  + Press the `Windows key` on the keyboard, type `dsa.msc` and press `Enter`. (This will open the `Active Directory Users and Computers` screen).
+  + In the left column, click the `Users` folder.
+  + In the central list, look for the user you created earlier, right-click on them and select `Properties`.
+  + Go to the tab at the top called `Account`.
+  + In the central panel (`Account options`), scroll down the list until you find: `Do not require Kerberos preauthentication`
+  + Check that box, click `Apply`, and then `OK`.
+
++ Give to a group permissions to another group (can be generalized to be done with whatever entity)
+  + Open `dsa.msc`
+  + Look at the top menu bar of the main `Active Directory` window (where you see `File`, `Action`, `View`, `Help`).
+  + Click `View`.
+  + Click `Advanced Features`. The screen will briefly refresh and you will see many more folders appear in the left column.
+  + Delegate the `Helpdesk` group the ability to modify `Domain Admins`
+    + Still in the `Users` folder, look for the `Domain Admins` group.
+    + Right-click `Domain Admins` and select `Properties`.
+    + Go to the `Security` tab at the top.
+(If you do not see the `Security` tab, click View in the top menu of `Active Directory` and enable `Advanced Features`.)
+    + Click `Add`, type `Helpdesk`, and click `OK`.
+    + Now select the `Helpdesk` group from the list at the top, and in the permissions panel at the bottom check `Write` or `Full Control`.
+    + Click `Apply` and then `OK`.
+
+#### Some other useful configuration about passwords
+To avoid problems with services, this command can be used: 
++ `Set-ADUser -Identity "sql_svc" -PasswordNeverExpires $true -ChangePasswordAtLogon $false`.
+
+For services accounts added as this tutorial suggest is not necessary, but could be useful for services not created this way.
+
+A policy could give troubles if changing passwords become necessary:
++  press `Windows + R` on your keyboard to open the “Run” window. Type `gpmc.msc` and press `Enter`, this will open the Group Policy Management Editor.
++  Then go to `Account Policies -> Password Policy`.
++  `Minimum password age: 0 days`.
+
+This will alow to change passwords without time-based blocks.
+
+### Create the target file
+To create `secrets.txt`, just create a file while being in the desktop of `VULN\Administrator` and write a message to be seen when the file will be stolen.
+
+### Saving the state of the DC
+Once the desired configuration is created, is fundamental to take a snapshot of the current state of the machine, since the attack could change the starting configuration of the DC or unwanted, unknown Windows mechanisms could modify the configuration after a period of time.
+
+By doing this the configuration desired is preserved and the machine can be restored to the saved state. It's important to easily perform multiple tries of the wanted attack.
+
 ## Introduction to the Attack
 The idea of this demo was to create and attack a small organization that uses Windows Active Directory which has several misconfigurations.
 
