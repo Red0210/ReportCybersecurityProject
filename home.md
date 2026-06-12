@@ -123,7 +123,7 @@ Now here the instructions to create the misconfigurations:
     + Still in the `Users` folder, look for the `Domain Admins` group.
     + Right-click `Domain Admins` and select `Properties`.
     + Go to the `Security` tab at the top.
-(If you do not see the `Security` tab, click View in the top menu of `Active Directory` and enable `Advanced Features`.)
+(If you do not see the `Security` tab, click View in the top menu of `Active Directory` and enable `Advanced Features`).
     + Click `Add`, type `Helpdesk`, and click `OK`.
     + Now select the `Helpdesk` group from the list at the top, and in the permissions panel at the bottom check `Write` or `Full Control`.
     + Click `Apply` and then `OK`.
